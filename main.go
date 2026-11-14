@@ -1,8 +1,10 @@
 package main
 
 import (
+	"fmt"
+
+	"github.com/claudio2064/gopportunities.git/config"
 	"github.com/claudio2064/gopportunities.git/router"
-	 
 )
 
 func main() {
@@ -11,7 +13,8 @@ func main() {
 	err  := config.Init() 
 	
 	if err !=nil{
-		panic("Error")
+		fmt.Println(err)
+		return
 	}	
 
 
