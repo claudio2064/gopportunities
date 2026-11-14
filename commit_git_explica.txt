@@ -1,0 +1,179 @@
+Para fazer um commit e enviar suas alterações para o GitHub pelo Visual Studio Code, você pode usar a aba Controle do Código-Fonte (Source Control) sem precisar digitar comandos no terminal.
+
+Pré-requisitos
+
+Antes de começar, garanta que o ambiente esteja pronto:
+• Git instalado. O Git precisa estar instalado no seu computador para que o editor reconheça o controle de versão.
+• Repositório vinculado. A pasta do projeto deve estar conectada ao seu repositório no GitHub e você deve estar logado na sua conta pelo VS Code.
+
+Passo a passo pela interface visual
+
+1. Abra a aba de Controle do Código-Fonte. Clique no ícone de ramificação (três bolinhas conectadas) na barra lateral esquerda ou pressione Ctrl + Shift + G.
+2. Prepare os arquivos (Stage). Passe o mouse sobre a seção Alterações (Changes) e clique no ícone + para preparar todos os arquivos modificados. Se preferir enviar apenas arquivos específicos, clique no + ao lado de cada item desejado.
+3. Escreva a mensagem do commit. Na caixa de texto acima do botão de confirmação, digite uma descrição clara e curta do que você alterou no código.
+4. Confirme e envie (Commit & Push). Clique na setinha ao lado do botão azul Confirmar (Commit) e selecione Confirmar e Enviar por Push (Commit & Push). Se você clicar apenas em Confirmar, o botão mudará para Sincronizar Alterações (Sync Changes), que também envia tudo para o GitHub.
+Veja na prática como preparar os arquivos, escrever a mensagem e enviar as alterações usando a interface do VS Code:
+12:38
+️Git e GitHub - Comitando no VsCode
+há 4 meses
+YouTube · Clube Full-Stack
+
+Alternativa pelo terminal integrado
+
+Se você preferir usar linhas de comando, abra o terminal do VS Code com o atalho Ctrl + ' e execute os três comandos abaixo em sequência:
+bash
+git add .
+git commit -m "Sua mensagem explicando a alteração"
+git push
+Use o código com cuidado.
+Você já tem o repositório conectado ao seu projeto ou precisa de ajuda para configurar o Git e vincular o GitHub pela primeira vez?
+Testar sem personalização
+• 
+YouTube·Thiago Veigah
+Como trabalhar com Git e GitHub no VsCode | Tutorial
+16 de jun. de 2021 — Nesse video eu vou te mostrar como utilizar o VsCode para gerenciar seu repositório Git e GitHub! Se conecte comigo nas redes soci...
+17:44
+• 
+YouTube·Clube Full-Stack
+️Git e GitHub - Comitando no VsCode
+30 de jun. de 2026 — 🛠️Git e GitHub - Comitando no VsCode nessa aula eu vou mostrar como fazer um commit utilizando o sece. control do VS Code eu vou ...
+12:38
+• 
+YouTube·Tecnum
+HOW TO USE GITHUB WITH VSCODE NO NONSENSE
+25 de jun. de 2025 — COMO UTILIZAR O GITHUB COM VSCODE SEM ENROLAÇÃO fala pessoal beleza como é que vocês estão tudo bem galera esse é um vídeo rápido ...
+8:00
+Mostrar tudo
+
+deu este erro. Como corrigi-lo
+
+fatal: unable to auto-detect email address (got 'claud@DESKTOP-28KDGIF.(none)')
+fatal: The current branch main has no upstream branch.
+To push the current branch and set the remote as upstream, use
+
+    git push --set-upstream origin main
+
+To have this happen automatically for branches without a tracking
+upstream, see 'push.autoSetupRemote' in 'git help config'.
+
+PS D:\Dropbox\Opportunuty_Arthur>
+
+Essas mensagens mostram dois problemas diferentes que aconteceram em sequência: o Git ainda não sabe quem você é (nome e e-mail) e a branch local main ainda não está vinculada ao repositório remoto no GitHub.
+Você pode resolver os dois problemas direto pelo terminal do VS Code (Ctrl + ').
+
+1. Configurar seu nome e e-mail no Git
+
+O primeiro erro (unable to auto-detect email address) bloqueou o seu commit porque o Git exige identificação antes de registrar qualquer alteração.
+• Defina seu nome e e-mail. Rode os dois comandos abaixo no terminal, substituindo pelos seus dados (use o mesmo e-mail cadastrado na sua conta do GitHub):
+bash
+git config --global user.name "Seu Nome"
+git config --global user.email "seu-email@exemplo.com"
+Use o código com cuidado.
+
+2. Refazer o commit e vincular a branch (Push)
+
+Como o commit anterior falhou por falta de e-mail, você precisa confirmar as alterações novamente e depois conectar a branch main ao GitHub.
+• Registre o commit novamente. Execute o comando abaixo com a sua mensagem:
+bash
+git commit -m "Primeiro commit"
+Use o código com cuidado.
+• Envie e vincule a branch. Como é o primeiro envio dessa branch para o GitHub, use a sugestão que o próprio terminal mostrou para criar o vínculo:
+bash
+git push -u origin main
+Use o código com cuidado.
+Depois de rodar o git push -u origin main uma única vez, o vínculo estará salvo. Nos próximos envios, você poderá usar apenas git push ou o botão azul do VS Code normalmente.
+Se você rodar esses comandos e aparecer algum erro de permissão ou autenticação (ou se ainda não tiver adicionado o endereço do repositório remoto origin), me avise para eu te mostrar como conectar o link do seu repositório.
+
+[main (root-commit) 0480017] Primeiro commit
+ 1 file changed, 3 insertions(+)
+ create mode 100644 go.mod
+PS D:\Dropbox\Opportunuty_Arthur> . Retornou essa informação. Funcionou?
+
+Sim, o commit funcionou perfeitamente. Essa mensagem confirma que o Git salvou a alteração do seu arquivo go.mod no histórico local do seu computador.
+
+O que essa mensagem significa
+
+• [main (root-commit) 0480017] Indica que este foi o primeiro commit da branch main e recebeu o código de identificação 0480017.
+• 1 file changed, 3 insertions(+) Mostra que 1 arquivo teve 3 linhas adicionadas.
+• create mode 100644 go.mod Confirma que o arquivo go.mod foi criado e registrado no histórico.
+
+Próximo passo: enviar para o GitHub
+
+Como o commit salva apenas no seu computador, você ainda precisa rodar o comando final para enviar esse arquivo para o site do GitHub.
+• Execute o push no terminal. Digite o comando abaixo e pressione Enter:
+bash
+git push -u origin main
+Use o código com cuidado.
+Se aparecer uma janela pedindo para fazer login no navegador, basta autorizar o acesso para concluir o envio.
+Se você rodar o git push e aparecer algum erro dizendo que origin não foi encontrado, me avise qual é o link do seu repositório no GitHub para eu te passar o comando exato de conexão.
+
+Retornou este erro?Delta compression using up to 12 threads
+Compressing objects: 100% (2/2), done.
+Writing objects: 100% (3/3), 270 bytes | 270.00 KiB/s, done.
+Total 3 (delta 0), reused 0 (delta 0), pack-reused 0 (from 0)
+remote: error: GH007: Your push would publish a private email address.
+remote: You can make your email public or disable this protection by visiting:
+remote: https://github.com/settings/emails
+To https://github.com/claudio2064/gopportunities.git
+ ! [remote rejected] main -> main (push declined due to email privacy restrictions)
+error: failed to push some refs to 'https://github.com/claudio2064/gopportunities.git'
+PS D:\Dropbox\Opportunuty_Arthur>
+
+Sim, o envio foi recusado pelo GitHub por privacidade de e-mail. O erro GH007: Your push would publish a private email address acontece porque a sua conta do GitHub tem uma proteção ativada para não expor seu e-mail pessoal publicamente nos commits.
+Para resolver isso mantendo seu e-mail privado e seguro, basta usar o e-mail anônimo (noreply) fornecido pelo próprio GitHub.
+
+Passo 1: Copie seu e-mail privado do GitHub
+
+1. Acesse as configurações de e-mail. Entre no link github.com/settings/emails (faça login se necessário).
+2. Encontre o endereço noreply. Procure a seção que menciona "Keep my email addresses private" e copie o endereço no formato ID+claudio2064@users.noreply.github.com (ou claudio2064@users.noreply.github.com).
+
+Passo 2: Atualize o e-mail no terminal do VS Code
+
+Como o commit que você já fez ainda contém o seu e-mail pessoal antigo, você precisa atualizar a configuração e reescrever o autor desse último commit antes de enviar.
+• Configure o novo e-mail no Git. Rode o comando abaixo substituindo pelo endereço noreply que você copiou:
+bash
+git config --global user.email "SEU_ID+claudio2064@users.noreply.github.com"
+Use o código com cuidado.
+• Atualize o autor do commit já criado. Rode o comando abaixo para corrigir o e-mail dentro do commit que está aguardando envio:
+bash
+git commit --amend --reset-author --no-edit
+Use o código com cuidado.
+• Envie novamente para o GitHub. Execute o comando de push:
+bash
+git push -u origin main
+Use o código com cuidado.
+
+Alternativa rápida (menos privada)
+
+Se você não se importar que o seu e-mail real fique visível no histórico público do código, acesse github.com/settings/emails, desmarque a caixa "Block command line pushes that expose my email" e rode apenas git push -u origin main no terminal.
+Se você rodar esses comandos e o push for concluído (ou se aparecer alguma dúvida para encontrar o endereço noreply na página do GitHub), me avise por aqui.
+
+Acho que funcionou. Retornou o codigo abaixo.
+PS D:\Dropbox\Opportunuty_Arthur> git push -u origin main
+Enumerating objects: 3, done.
+Counting objects: 100% (3/3), done.
+Delta compression using up to 12 threads
+Compressing objects: 100% (2/2), done.
+Writing objects: 100% (3/3), 286 bytes | 286.00 KiB/s, done.
+Total 3 (delta 0), reused 0 (delta 0), pack-reused 0 (from 0)
+To https://github.com/claudio2064/gopportunities.git
+ * [new branch]      main -> main
+branch 'main' set up to track 'origin/main'.
+PS D:\Dropbox\Opportunuty_Arthur>
+
+Sim, funcionou perfeitamente e seu arquivo já está no GitHub. A página do seu repositório claudio2064/gopportunities já exibe o histórico com 1 Commit e o arquivo go.mod listado na pasta principal.
+
+O que a resposta do terminal confirma
+
+• * [new branch] main -> main A branch main foi criada no GitHub e recebeu os arquivos do seu computador.
+• branch 'main' set up to track 'origin/main' O vínculo permanente entre o seu projeto local e o GitHub foi salvo com sucesso.
+
+Como fazer os próximos envios
+
+Agora que toda a configuração inicial está pronta, você não precisa mais repetir nenhum desses passos de e-mail ou vínculo. Nos próximos commits, basta usar a interface visual do VS Code (clicando no +, escrevendo a mensagem e apertando o botão azul Confirmar e Enviar por Push) ou rodar a sequência simples no terminal:
+bash
+git add .
+git commit -m "Descrição das novas alterações"
+git push
+Use o código com cuidado.
+Se quiser, posso te mostrar como criar um arquivo .gitignore para projetos em Go para evitar que arquivos temporários ou compilados sejam enviados por engano nos próximos commits. Gostaria de ver como fazer isso?
