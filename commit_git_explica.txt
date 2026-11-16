@@ -177,3 +177,217 @@ git commit -m "Descrição das novas alterações"
 git push
 Use o código com cuidado.
 Se quiser, posso te mostrar como criar um arquivo .gitignore para projetos em Go para evitar que arquivos temporários ou compilados sejam enviados por engano nos próximos commits. Gostaria de ver como fazer isso?
+
+
+alterando o import para a criação do sqlite 
+
+stou com este erro 
+PS D:\Dropbox\Opportunuty_Arthur> go run main.go
+INFO: 2026/11/16 15:51:40 database file not found, creating....
+ERROR: 2026/11/16 15:51:40 sqlite opening error: Binary was compiled with 'CGO_ENABLED=0', go-sqlite3 requires cgo to work. This is a stub
+ERROR: 2026/11/16 15:51:40 config initialization error: Erro initializing sqlite: Binary was compiled with 'CGO_ENABLED=0', go-sqlite3 requires cgo to work. This is a stub
+PS D:\Dropbox\Opportunuty_Arthur
+Encontrados 15 resultados
+O erro ocorre porque o driver go-sqlite3 que você está usando depende do CGO (uma forma do Go chamar código C), e o seu ambiente Windows está com o CGO desabilitado (CGO_ENABLED=0). Além disso, mesmo habilitando, o Go precisará de um compilador C (como o GCC) instalado para funcionar.
+
+Aqui está o passo a passo para resolver isso no Windows:
+
+1. Instalar um compilador C (GCC)
+O jeito mais fácil no Windows é usar o MSYS2 ou o MinGW-w64 para obter o gcc .
+
+Opção A (MSYS2 - Recomendado):
+
+Baixe e instale o MSYS2.
+Abra o terminal do MSYS2 e instale o compilador com o comando: pacman -S mingw-w64-ucrt-x86_64-gcc .
+Adicione a pasta bin do GCC ao PATH do Windows (geralmente C:\msys64\ucrt64\bin) .
+Opção B (MinGW-w64 direto):
+
+Baixe uma versão do MinGW-w64 (ex: de sourceforge ou winlibs).
+Extraia em um local como C:\mingw64.
+Adicione C:\mingw64\bin às variáveis de ambiente do sistema (PATH) .
+2. Verificar se o GCC está acessível
+Abra um novo terminal (PowerShell ou CMD) e digite:
+
+powershell
+gcc --version
+Se aparecer a versão do GCC (ex: gcc (x86_64-win32-seh-rev1...) 13.1.0), está tudo certo .
+
+3. Habilitar o CGO
+Ainda no terminal, configure o Go para habilitar o CGO de forma permanente:
+
+powershell
+go env -w CGO_ENABLED=1
+Você pode verificar se funcionou rodando go env CGO_ENABLED. Deve retornar 1 .
+
+4. Rodar o projeto novamente
+Agora que o compilador está no PATH e o CGO está ligado, execute o seu código:
+
+powershell
+go run main.go
+(Se ainda der erro, tente rodar go clean -cache antes para limpar o cache de compilação e depois go run novamente.)
+
+💡 Alternativa (Sem instalar nada)
+Se você não quiser instalar o GCC no seu Windows, existe uma alternativa: trocar o driver do SQLite por um que seja puramente Go (não precisa de CGO).
+Você pode usar o driver modernc.org/sqlite no lugar do github.com/mattn/go-sqlite3. No seu código, a importação mudaria de _ "github.com/mattn/go-sqlite3" para _ "modernc.org/sqlite", e o nome do driver na string de conexão (sql.Open) mudaria de "sqlite3" para "sqlite" . Isso simplifica o deploy, mas exige alterar o código.
+
+Meu codigo do sqlite foi estruturado assim 
+package config
+
+import (
+	"os"
+
+	"github.com/claudio2064/gopportunities.git/schemas"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
+)
+
+func InitializeSQLite() (*gorm.DB, error) {
+	logger := GetLogger("sqlite")
+
+	dbPath := "./db/main.db"
+	// Chec if the data file exists
+	_, err := os.Stat(dbPath)
+	if os.IsNotExist(err) {
+		logger.Info("database file not found, creating....")
+		err = os.MkdirAll("./db", os.ModePerm)
+		if err !=nil {
+			return nil, err
+		}
+		file, err := os.Create(dbPath)
+		if err !=nil {
+			return nil, err
+		}
+		file.Close()
+	}
+
+	db, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
+	if err != nil {
+		logger.Errorf("sqlite opening error: %v", err)
+		return nil, err
+	}
+
+	// Migrate the Schemas
+	err = db.AutoMigrate(&schemas.Opening{})
+	if err != nil {
+		logger.Errorf("sqlite automigration error: %v", err)
+		return nil, err
+	}
+
+	//Return the DB
+	return db, nil
+}
+Encontrados 14 resultados
+O erro que você está vendo (CGO_ENABLED=0) acontece porque o driver oficial do GORM para SQLite (gorm.io/driver/sqlite) depende do go-sqlite3, que precisa de um compilador C para funcionar .
+
+Você tem dois caminhos para resolver isso. O mais simples, que não exige instalar nada novo no seu Windows, é trocar o driver por um que seja puramente Go (sem CGO).
+
+🛠️ Solução Recomendada: Trocar o Driver (Sem instalar CGO)
+Você pode substituir o driver oficial pelo github.com/glebarez/sqlite (ou github.com/libtnb/sqlite), que são alternativas compatíveis e não precisam de compilador C .
+
+1. Instale o novo driver:
+
+powershell
+go get github.com/glebarez/sqlite
+2. Altere o seu arquivo config/sqlite.go:
+
+Troque o import e a chamada do 
+gorm.Open
+. O resto do seu código (como o AutoMigrate) continua igual.
+
+go
+package config
+
+import (
+	"os"
+
+	"github.com/claudio2064/gopportunities.git/schemas"
+	"github.com/glebarez/sqlite" // <-- Driver puramente Go
+	"gorm.io/gorm"
+)
+
+func InitializeSQLite() (*gorm.DB, error) {
+	logger := GetLogger("sqlite")
+
+	dbPath := "./db/main.db"
+	// Chec if the data file exists
+	_, err := os.Stat(dbPath)
+	if os.IsNotExist(err) {
+		logger.Info("database file not found, creating....")
+		err = os.MkdirAll("./db", os.ModePerm)
+		if err != nil {
+			return nil, err
+		}
+		file, err := os.Create(dbPath)
+		if err != nil {
+			return nil, err
+		}
+		file.Close()
+	}
+
+	// O driver glebarez/sqlite usa o nome "sqlite" na conexão
+	db, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
+	if err != nil {
+		logger.Errorf("sqlite opening error: %v", err)
+		return nil, err
+	}
+
+	// Migrate the Schemas
+	err = db.AutoMigrate(&schemas.Opening{})
+	if err != nil {
+		logger.Errorf("sqlite automigration error: %v", err)
+		return nil, err
+	}
+
+	//Return the DB
+	return db, nil
+}
+3. Limpe o cache e rode de novo:
+
+powershell
+go mod tidy
+go clean -cache
+go run main.go
+💡 Alternativa: Manter o Driver Oficial (Instalando CGO)
+Se você preferir manter o driver gorm.io/driver/sqlite, vai precisar instalar um compilador C (MinGW-w64) e habilitar o CGO no seu ambiente .
+
+Instale o MinGW-w64: Baixe e instale (ou extraia) o MinGW-w64 no seu Windows.
+
+Adicione ao PATH: Coloque a pasta bin do MinGW (onde fica o gcc.exe) nas variáveis de ambiente do sistema.
+
+Habilite o CGO: Abra um novo terminal e rode:
+
+powershell
+go env -w CGO_ENABLED=1
+Teste o GCC: Verifique se o comando gcc --version funciona no terminal.
+
+Rode o projeto: Agora o go run main.go deve conseguir compilar o driver oficial.
+
+A troca de driver é geralmente a melhor opção para quem está começando ou quer evitar a complexidade de configurar um ambiente C no Windows.
+
+deu este erro 
+S D:\Dropbox\Opportunuty_Arthur> go run main.go      
+config\sqlite.go:7:2: no required module provides package github.com/glebarez/sqlite; to add it:
+        go get github.com/glebarez/sqlite
+Encontrados 15 resultados
+O erro indica que o pacote github.com/glebarez/sqlite ainda não foi adicionado às dependências do seu projeto. O comando que você precisa executar é exatamente o que o terminal sugeriu.
+
+🔧 Solução
+No terminal do PowerShell, dentro da pasta do seu projeto (D:\Dropbox\Opportunuty_Arthur), execute:
+
+powershell
+go get github.com/glebarez/sqlite
+Depois disso, rode o go mod tidy para organizar as dependências e tente executar novamente:
+
+powershell
+go mod tidy
+go run main.go
+💡 Por que isso acontece?
+O go get baixa o pacote e o adiciona ao seu arquivo go.mod . Sem esse passo, o Go não sabe onde encontrar o código do driver quando você tenta importá-lo no sqlite.go.
+
+📌 Observação sobre o driver
+O github.com/glebarez/sqlite é uma implementação puramente Go do SQLite para GORM, ou seja, ele não precisa de CGO nem de um compilador C instalado . É exatamente a alternativa que resolve o erro anterior de CGO_ENABLED=0.
+
+Após instalar, seu código deve compilar e rodar normalmente no Windows.
+
+
+
