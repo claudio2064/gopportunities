@@ -30,3 +30,6 @@ func main() {
 	router.Initialize()
 
 }
+
+
+//https://www.youtube.com/watch?v=wyEYpX5U4Vg&t=2443s tempo parada 2:33:13

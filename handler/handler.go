@@ -1,1 +1,17 @@
 package handler
+
+import (
+	"github.com/claudio2064/gopportunities.git/config"
+	"gorm.io/gorm"
+	 
+)
+
+var (
+	logger *config.Logger
+	db     *gorm.DB
+)
+
+func InitializeHandler(){
+	logger = config.GetLogger("handler")
+	db = config.GetSQLite()
+}
