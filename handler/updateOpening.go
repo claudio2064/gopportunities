@@ -7,6 +7,15 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// @Summary      Delete opening
+// @Description  Delete an opening by ID
+// @Tags         openings
+// @Accept       json
+// @Produce      json
+// @Param        id   query      string  true  "Opening ID"
+// @Success      200  {object}   schemas.Opening 
+// @Router       /opening [put]
+
 func UpdateOpeningHandler(ctx *gin.Context) {
 	request := UpdateOpeningRequest{}
 

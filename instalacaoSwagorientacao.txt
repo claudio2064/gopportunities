@@ -1,0 +1,459 @@
+estou com este erro. 
+2026/11/18 14:00:37 D:/Dropbox/Opportunuty_Arthur/handler/deleteOpening.go:20 record not found
+[1.057ms] [rows:0] SELECT * FROM `openings` WHERE `openings`.`id` = "1" AND `openings`.`deleted_at` IS NULL ORDER BY `openings`.`id` LIMIT 1
+[GIN] 2026/11/18 - 14:00:37 | 302 |   2.11ms |             ::1 | DELETE   "/api/v1/opening?id=1"
+
+2026/11/18 14:01:38 D:/Dropbox/Opportunuty_Arthur/handler/deleteOpening.go:20 record not found
+[0.000ms] [rows:0] SELECT * FROM `openings` WHERE `openings`.`id` = "1" AND `openings`.`deleted_at` IS NULL ORDER BY `openings`.`id` LIMIT 1
+[GIN] 2026/11/18 - 14:01:38 | 302 |  534.2µs |             ::1 | DELETE   "/api/v1/opening?id=1"
+Encontrados 14 resultados
+O erro que você está vendo não é necessariamente um bug no seu código, mas sim um comportamento esperado do GORM que precisa ser tratado adequadamente. O registro com id = "1" não foi encontrado na tabela openings (considerando o soft delete, pois a query filtra deleted_at IS NULL).
+
+🔍 Causa do problema
+O GORM retorna gorm.ErrRecordNotFound quando você utiliza métodos como First, Last ou Take e nenhum registro corresponde à condição . No seu log, a query SELECT * FROM openings WHERE id = "1" AND deleted_at IS NULL retornou zero linhas, disparando esse erro.
+
+Além disso, o log mostra um status HTTP 302 (redirecionamento). Isso indica que, provavelmente, você está tratando o erro de forma genérica (talvez redirecionando para uma página de erro ou lista) em vez de retornar um 404 Not Found semântico para o cliente da API.
+
+✅ Como corrigir
+Você precisa ajustar o handler deleteOpening.go para verificar especificamente se o erro é de "registro não encontrado" e responder de forma adequada.
+
+1. Verifique o erro com errors.Is
+
+Use a função errors.Is para comparar o erro retornado com gorm.ErrRecordNotFound. Isso é mais seguro do que comparar diretamente com ==, pois lida com erros embrulhados .
+
+go
+import (
+    "errors"
+    "net/http"
+    "github.com/gin-gonic/gin"
+    "gorm.io/gorm"
+)
+
+// ... dentro do seu handler
+err := db.First(&opening, id).Error
+if err != nil {
+    if errors.Is(err, gorm.ErrRecordNotFound) {
+        // Retorna 404 em vez de 302 ou 500
+        c.JSON(http.StatusNotFound, gin.H{"error": "Abertura não encontrada"})
+        return
+    }
+    // Outros erros (ex: falha de conexão)
+    c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+    return
+}
+2. Alternativa: Use RowsAffected (se preferir não usar First)
+
+Se você estiver fazendo um Delete direto com Where, o GORM pode retornar nil como erro mesmo quando nenhuma linha é afetada. Nesse caso, verifique result.RowsAffected :
+
+go
+result := db.Where("id = ?", id).Delete(&Opening{})
+if result.Error != nil {
+    // erro real
+}
+if result.RowsAffected == 0 {
+    c.JSON(http.StatusNotFound, gin.H{"error": "Abertura não encontrada"})
+    return
+}
+3. Considere o Soft Delete
+
+Como a query já filtra deleted_at IS NULL, o erro também ocorre se o registro já foi deletado anteriormente (soft delete). Se a intenção for permitir deletar novamente ou restaurar, você pode precisar usar Unscoped() para verificar se o registro existe fisicamente .
+
+💡 Resumo
+O log está correto ao indicar que o registro não existe. O ajuste necessário é no tratamento da resposta HTTP: em vez de deixar o GIN retornar 302, capture o gorm.ErrRecordNotFound e devolva um 404 com uma mensagem clara para o consumidor da API.
+
+minha função é essa 
+package handler
+
+import (
+	"fmt"
+	"net/http"
+
+	"github.com/claudio2064/gopportunities.git/schemas"
+	"github.com/gin-gonic/gin"
+)
+
+func DeleteOpeningHandler(ctx *gin.Context) {
+	id := ctx.Query("id")
+	if id == "" {
+		sendError(ctx, http.StatusBadRequest, errParamIsRequired("id",
+			"queryParameter").Error())
+		return
+	}
+
+	opening := schemas.Opening{}
+	if err := db.First(&opening, id).Error; err != nil {
+		sendError(ctx, http.StatusFound, fmt.Sprintf("opening with id: %s not found", id))
+		return
+	}
+
+	if err := db.Delete(&opening).Error; err != nil {
+		sendError(ctx, http.StatusInternalServerError, fmt.Sprintf("error deleting opening with id: %s", id))
+		return
+	}
+
+	sendSuccess(ctx, "delete-opening", opening)
+}
+O problema está claro: você está usando http.StatusFound (que é 302) quando o registro não é encontrado. Isso explica o 302 no log. O correto semanticamente é http.StatusNotFound (404).
+
+Mas há mais alguns pontos de melhoria importantes nessa função:
+
+🔧 Problemas identificados
+http.StatusFound (302) para "não encontrado" — semanticamente errado. Deve ser http.StatusNotFound (404).
+
+O erro real do GORM é ignorado — qualquer erro (não só ErrRecordNotFound) cai no mesmo sendError. Se for um erro de conexão com o banco, você reporta "não encontrado", mascarando o problema.
+
+id como string sem validação — o GORM aceita, mas não valida se é numérico. Se alguém passar ?id=abc, você recebe "não encontrado" em vez de "parâmetro inválido".
+
+sendSuccess retorna o opening após o delete — funciona porque o GORM ainda mantém os campos em memória, mas dependendo do seu sendSuccess, pode confundir o cliente. Considere retornar apenas { "id": id } ou uma mensagem.
+
+Log do erro — vale logar o erro real antes de responder, para debug.
+
+✅ Versão corrigida
+go
+package handler
+
+import (
+	"errors"
+	"fmt"
+	"net/http"
+	"strconv"
+
+	"github.com/claudio2064/gopportunities.git/schemas"
+	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
+)
+
+func DeleteOpeningHandler(ctx *gin.Context) {
+	idStr := ctx.Query("id")
+	if idStr == "" {
+		sendError(ctx, http.StatusBadRequest, errParamIsRequired("id", "queryParameter").Error())
+		return
+	}
+
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		sendError(ctx, http.StatusBadRequest, fmt.Sprintf("invalid id: %s", idStr))
+		return
+	}
+
+	opening := schemas.Opening{}
+	if err := db.First(&opening, id).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			sendError(ctx, http.StatusNotFound,
+				fmt.Sprintf("opening with id: %d not found", id))
+			return
+		}
+		// erro inesperado (conexão, etc.)
+		sendError(ctx, http.StatusInternalServerError,
+			fmt.Sprintf("error fetching opening with id: %d", id))
+		return
+	}
+
+	if err := db.Delete(&opening).Error; err != nil {
+		sendError(ctx, http.StatusInternalServerError,
+			fmt.Sprintf("error deleting opening with id: %d", id))
+		return
+	}
+
+	sendSuccess(ctx, "delete-opening", opening)
+}
+📌 Resumo das mudanças
+Antes	Depois
+http.StatusFound (302)	http.StatusNotFound (404)
+Qualquer erro → "not found"	errors.Is(err, gorm.ErrRecordNotFound) diferencia
+id string direto no First	strconv.ParseUint valida antes
+Sem distinção de erro de banco	500 para erros inesperados
+🧪 Teste
+Depois de aplicar:
+
+DELETE /api/v1/opening?id=1 (inexistente) → 404
+
+DELETE /api/v1/opening?id=abc → 400
+
+DELETE /api/v1/opening (sem id) → 400
+
+DELETE /api/v1/opening?id=1 (existente) → 200
+
+E o log record not found continuará aparecendo (é o GORM logando internamente), mas agora com uma resposta HTTP correta. Se quiser silenciar esse log do GORM, pode configurar o logger no gorm.Config com Logger: logger.Default.LogMode(logger.Silent) ou usar IgnoreRecordNotFoundError: true no logger.Config.
+
+como instalar o swaggo no vscode?
+Encontrados 14 resultados
+O Swaggo em si não é uma extensão do VS Code, mas sim uma ferramenta de linha de comando (CLI) baseada em Go. Para usá-lo no VS Code, você precisa instalá-lo através do terminal e, opcionalmente, instalar plugins auxiliares para melhorar a experiência de desenvolvimento.
+
+📦 Passo 1: Instalar a ferramenta de linha de comando Swag
+Abra o terminal no VS Code (ou qualquer terminal do sistema) e execute o seguinte comando para instalar globalmente a ferramenta CLI do Swag:
+
+bash
+go install github.com/swaggo/swag/cmd/swag@latest
+Após a instalação, certifique-se de que o diretório bin do Go (geralmente ~/go/bin ou %USERPROFILE%\go\bin) está na variável de ambiente PATH, caso contrário o VS Code não conseguirá encontrar o comando swag.
+
+Verifique se a instalação foi bem-sucedida:
+
+bash
+swag version
+🔌 Passo 2: Instalar extensões auxiliares do VS Code (opcional)
+Para melhorar a eficiência de escrita de comentários Swagger, você pode instalar os seguintes plugins na loja de extensões do VS Code:
+
+Swag for Go (autor zjzjzj): Pode gerar automaticamente a documentação ao salvar arquivos .go, ou instalar Swaggo (uma extensão que permite escrever anotações em um formato mais legível e convertê-las automaticamente para comentários padrão).
+
+REST Client: Para testar e validar diretamente as requisições de API no VS Code.
+
+⚙️ Passo 3: Usar no projeto (exemplo)
+No diretório raiz do seu projeto Go (o diretório que contém main.go), execute o comando de inicialização. Por exemplo, para o seu projeto com Gin:
+
+bash
+swag init -g main.go -o ./docs
+Isso irá escanear seus comentários e gerar a pasta docs (contendo docs.go, swagger.json, etc.).
+
+Dica: Se a estrutura do seu projeto for especial (por exemplo, main.go não está no diretório raiz), você pode usar o parâmetro -g para especificar o caminho, por exemplo swag init -g cmd/server/main.go.
+
+Se encontrar erros na geração de tipos, você pode tentar adicionar o parâmetro --parseDependency para analisar dependências externas.
+
+PS D:\Dropbox\Opportunuty_Arthur> swag version
+No help topic for 'version'
+PS D:\Dropbox\Opportunuty_Arthur>
+Encontrados 13 resultados
+Você digitou o comando de forma errada. O comando para verificar a versão do swag não é swag version, mas sim swag --version (com dois traços) ou swag -v (com um traço).
+
+✅ Comando correto
+Execute no seu terminal:
+
+bash
+swag --version
+ou
+
+bash
+swag -v
+Se a instalação estiver correta, deverá aparecer algo como swag version v1.16.4 (ou outro número de versão).
+
+💡 Nota adicional
+Mesmo que você tenha instalado a versão mais recente v1.16.6, o comando swag --version pode ainda mostrar v1.16.4. Isso é um problema conhecido do próprio swag onde a string de versão não foi atualizada. Desde que o comando seja executado e produza uma saída, significa que a instalação foi bem-sucedida e você pode continuar usando swag init normalmente.
+
+PS D:\Dropbox\Opportunuty_Arthur> swag init -g main.go -o ./docs
+2026/11/18 15:26:46 Generate swagger docs....
+2026/11/18 15:26:46 Generate general API Info, search dir:./
+2026/11/18 15:26:46 create docs.go at docs/docs.go
+2026/11/18 15:26:46 create swagger.json at docs/swagger.json
+2026/11/18 15:26:46 create swagger.yaml at docs/swagger.yaml
+PS D:\Dropbox\Opportunuty_Arthur>
+Perfeito! 🎉 A geração foi concluída com sucesso. Foram criados 3 arquivos dentro de ./docs:
+
+docs.go — arquivo Go com a documentação embutida (o que você vai importar no código)
+
+swagger.json — especificação OpenAPI em JSON
+
+swagger.yaml — especificação em YAML
+
+📋 Próximos passos para servir a UI do Swagger
+Agora você precisa expor a interface web do Swagger na sua API Gin. Para isso, instale o pacote de UI:
+
+bash
+go get -u github.com/swaggo/files
+go get -u github.com/swaggo/gin-swagger
+Depois, no seu main.go (ou router), adicione:
+
+go
+import (
+    "github.com/gin-gonic/gin"
+    swaggerFiles "github.com/swaggo/files"
+    ginSwagger "github.com/swaggo/gin-swagger"
+
+    _ "github.com/claudio2064/gopportunities.git/docs" // importa os docs gerados
+)
+
+func main() {
+    r := gin.Default()
+
+    // ... suas rotas
+    r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+
+    r.Run(":8080")
+}
+O import _ "…/docs" é essencial — é o que registra a documentação gerada no runtime.
+
+🏷️ Adicione as anotações nos handlers
+O Swag escaneia comentários especiais. Coloque-os acima de cada handler. Exemplo para o seu DeleteOpeningHandler:
+
+go
+// @Summary      Delete opening
+// @Description  Delete an opening by ID
+// @Tags         openings
+// @Accept       json
+// @Produce      json
+// @Param        id   query      string  true  "Opening ID"
+// @Success      200  {object}   schemas.Opening
+// @Failure      400  {object}   ErrorResponse
+// @Failure      404  {object}   ErrorResponse
+// @Failure      500  {object}   ErrorResponse
+// @Router       /opening [delete]
+func DeleteOpeningHandler(ctx *gin.Context) {
+    ...
+}
+E no main.go, as anotações gerais (título, versão, etc.):
+
+go
+// @title           Gopportunities API
+// @version         1.0
+// @description     API for managing job openings
+// @host            localhost:8080
+// @BasePath        /api/v1
+func main() {
+    ...
+}
+🔁 Regenerar sempre que mudar anotações
+Toda vez que alterar comentários // @..., rode novamente:
+
+bash
+swag init -g main.go -o ./docs
+Se esquecer, a UI mostra a doc antiga.
+
+🌐 Acessar
+Com o servidor rodando:
+
+text
+http://localhost:8080/swagger/index.html
+💡 Dica extra
+Se quiser automatizar a regeneração, considere:
+
+Adicionar um //go:generate swag init -g main.go -o ./docs em algum arquivo .go e rodar go generate ./...
+
+Ou usar o Makefile / Taskfile do projeto com um target docs
+
+Se aparecer algum erro no caminho (ex: swag init não encontra tipos de pacotes externos), me avisa que ajustamos com --parseDependency ou --parseInternal.
+
+colei na função router 
+package router
+
+import "github.com/gin-gonic/gin"
+
+func Initialize() {
+	//Inicialize Router
+	router := gin.Default()
+
+	//Initialize Routes
+	// ... suas rotas
+	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+
+	InitializeRoutes(router)
+
+	// Run the server
+	router.Run(":8080") // escuta e serve em 0.0.0.0:8080
+
+}
+Mas não funcionou. 
+PS D:\Dropbox\Opportunuty_Arthur> go run main.go
+# github.com/claudio2064/gopportunities.git/router
+router\router.go:11:30: undefined: ginSwagger
+router\router.go:11:53: undefined: swaggerFiles
+PS D:\Dropbox\Opportunuty_Arthur>
+Faltou importar os pacotes e usar a variável correta (router, não r). Também é preciso importar o pacote docs com _ para que o Swag registre a documentação. Veja o router.go corrigido:
+
+go
+package router
+
+import (
+	"github.com/gin-gonic/gin"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
+
+	_ "github.com/claudio2064/gopportunities.git/docs" // importa docs gerados pelo swag
+)
+
+func Initialize() {
+	// Inicialize Router
+	router := gin.Default()
+
+	// Swagger UI
+	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+
+	// Initialize Routes
+	InitializeRoutes(router)
+
+	// Run the server
+	router.Run(":8080")
+}
+🔍 O que estava errado
+Imports ausentes — ginSwagger e swaggerFiles não estavam importados, causando o undefined.
+
+Variável errada — você usou r.GET(...) mas a variável criada foi router.
+
+Faltava importar docs — sem _ "…/docs", o ginSwagger não encontra a doc registrada (a UI abriria, mas vazia/sem rotas).
+
+📦 Antes de rodar, confirme as dependências
+Se ainda não instalou os pacotes do Swagger:
+
+bash
+go get github.com/swaggo/files
+go get github.com/swaggo/gin-swagger
+✅ Teste
+bash
+go run main.go
+Acesse: http://localhost:8080/swagger/index.html
+
+Se aparecer erro do tipo docs: package …/docs is not in std ou algo relacionado ao docs.go gerado, me manda o log — pode ser necessário ajustar o -g/-o no swag init ou revisar o nome do módulo no go.mod.
+
+Criou a pasta docs e os arquivos, mas não apareceu o endereço mencionado acima. 
+Segue o resultado do main.go
+[GIN-debug] GET    /swagger/*any             --> github.com/swaggo/gin-swagger.CustomWrapHandler.func1 (3 handlers)
+[GIN-debug] GET    /api/v1/opening           --> github.com/claudio2064/gopportunities.git/handler.ShownOpeningHandler (3 handlers)
+[GIN-debug] POST   /api/v1/opening           --> github.com/claudio2064/gopportunities.git/handler.CreateOpeningHandler (3 handlers)
+[GIN-debug] DELETE /api/v1/opening           --> github.com/claudio2064/gopportunities.git/handler.DeleteOpeningHandler (3 handlers)
+[GIN-debug] PUT    /api/v1/opening           --> github.com/claudio2064/gopportunities.git/handler.UpdateOpeningHandler (3 handlers)
+[GIN-debug] GET    /api/v1/openings          --> github.com/claudio2064/gopportunities.git/handler.ListOpeningsHandler (3 handlers)
+[GIN-debug] [WARNING] You trusted all proxies, this is NOT safe. We recommend you to set a value.
+Please check https://github.com/gin-gonic/gin/blob/master/docs/doc.md#dont-trust-all-proxies for details.
+[GIN-debug] Listening and serving HTTP on :8080
+Encontrados 15 resultados
+O servidor está a correr normalmente e a rota Swagger foi registada com sucesso (GET /swagger/*any). O endereço que procura não é impresso no terminal; tem de o introduzir manualmente no navegador.
+
+🌐 Endereço de acesso correto
+Abra o navegador e aceda diretamente a:
+
+http://localhost:8080/swagger/index.html
+
+O index.html não pode ser omitido. Se apenas introduzir http://localhost:8080/swagger, poderá receber um erro 404, porque a rota wildcard *any necessita de corresponder ao caminho completo do recurso estático .
+
+🔍 Se a página abrir em branco ou apresentar erros
+Uma vez que a rota está registada, se a página não apresentar conteúdo, as causas mais comuns são:
+
+O pacote docs não foi importado: verifique se o seu main.go (ou o ficheiro que realmente inicia o programa) contém _ "github.com/claudio2064/gopportunities.git/docs". Sem este import, o swagger.json não será carregado na compilação .
+
+As anotações nos handlers não foram geradas: execute novamente swag init -g main.go -o ./docs e depois reinicie o serviço. O swag não monitoriza alterações em tempo real; após modificar as anotações é necessário regenerar .
+
+Conflito de caminho com @BasePath: uma vez que as suas rotas estão todas em /api/v1, é recomendável adicionar // @BasePath /api/v1 nas anotações globais do main.go; caso contrário, o caminho base poderá estar incorreto quando testar pedidos no Swagger .
+
+O erro é bem claro e está na sintaxe da sua anotação @Router.
+
+O Swagger (OpenAPI) segue o padrão HTTP, e CREATE não é um método HTTP válido. Os métodos válidos são: GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS.
+
+Como você está criando uma "opening", o método HTTP correto é o POST.
+
+🛠️ Como corrigir
+Abra o seu arquivo handler/createOpening.go e altere a última linha das anotações:
+
+De:
+
+go
+// @Router       /opening [create]
+Para:
+
+go
+// @Router       /opening [post]
+💡 Dica para os outros handlers
+Aproveite e confira as anotações dos outros handlers para garantir que estão usando os métodos HTTP corretos:
+
+Create (Criar) -> [post]
+
+Show / List (Buscar) -> [get]
+
+Update (Atualizar) -> [put] (ou [patch])
+
+Delete (Deletar) -> [delete]
+
+Após alterar para [post], rode o comando novamente:
+
+bash
+swag init --parseDependency --parseInternal
+Se não aparecer mais nenhum erro no terminal, é só reiniciar o go run main.go e atualizar a página do Swagger!
+
+

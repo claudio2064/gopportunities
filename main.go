@@ -13,6 +13,12 @@ var (
 	logger *config.Logger
 
 )
+
+// @title           Gopportunities API
+// @version         1.0
+// @description     API for managing job openings
+// @host            localhost:8080
+// @BasePath        /api/v1
 func main() {
 
 	logger = config.GetLogger("main")

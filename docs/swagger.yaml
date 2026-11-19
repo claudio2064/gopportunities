@@ -1,4 +1,103 @@
+basePath: /api/v1
+definitions:
+  gorm.DeletedAt:
+    properties:
+      time:
+        type: string
+      valid:
+        description: Valid is true if Time is not NULL
+        type: boolean
+    type: object
+  schemas.Opening:
+    properties:
+      company:
+        type: string
+      createdAt:
+        type: string
+      deletedAt:
+        $ref: '#/definitions/gorm.DeletedAt'
+      id:
+        type: integer
+      link:
+        type: string
+      location:
+        type: string
+      remote:
+        type: boolean
+      role:
+        type: string
+      salary:
+        format: int64
+        type: integer
+      updatedAt:
+        type: string
+    type: object
+host: localhost:8080
 info:
   contact: {}
-paths: {}
+  description: API for managing job openings
+  title: Gopportunities API
+  version: "1.0"
+paths:
+  /opening:
+    delete:
+      consumes:
+      - application/json
+      description: Delete an opening by ID
+      parameters:
+      - description: Opening ID
+        in: query
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/schemas.Opening'
+      summary: Delete opening
+      tags:
+      - openings
+    get:
+      consumes:
+      - application/json
+      description: Delete an opening by ID
+      parameters:
+      - description: Opening ID
+        in: query
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/schemas.Opening'
+      summary: List opening
+      tags:
+      - openings
+    post:
+      consumes:
+      - application/json
+      description: Delete an opening by ID
+      parameters:
+      - description: Opening ID
+        in: query
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/schemas.Opening'
+      summary: Create opening
+      tags:
+      - openings
 swagger: "2.0"

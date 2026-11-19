@@ -4,10 +4,19 @@ import (
 	//"net/http"
 
 	"net/http"
+
 	"github.com/claudio2064/gopportunities.git/schemas"
 	"github.com/gin-gonic/gin"
 )
 
+// @Summary     Create opening
+// @Description  Delete an opening by ID
+// @Tags         openings
+// @Accept       json
+// @Produce      json
+// @Param        id   query      string  true  "Opening ID"
+// @Success      200  {object}   schemas.Opening
+// @Router       /opening [post]
 func CreateOpeningHandler(ctx *gin.Context) {
 	request := CreateOpeningRequest{}
 
@@ -19,13 +28,13 @@ func CreateOpeningHandler(ctx *gin.Context) {
 		return
 	}
 
-	opening  := schemas.Opening{
-		Role: request.Role,
-		Company: request.Company,
+	opening := schemas.Opening{
+		Role:     request.Role,
+		Company:  request.Company,
 		Location: request.Location,
-		Remote: *request.Remote,
-		Link : request.Link,
-		Salary: request.Salary,
+		Remote:   *request.Remote,
+		Link:     request.Link,
+		Salary:   request.Salary,
 	}
 
 	//logger.Infof("request received: %+v", request
