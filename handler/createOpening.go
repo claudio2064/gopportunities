@@ -10,12 +10,14 @@ import (
 )
 
 // @Summary     Create opening
-// @Description  Delete an opening by ID
+// @Description  Create a nes job opening
 // @Tags         openings
 // @Accept       json
 // @Produce      json
-// @Param        id   query      string  true  "Opening ID"
-// @Success      200  {object}   schemas.Opening
+// @Param        request body CreateOpeningRequest true "Request body"
+// @Success      200  {object}   CreateOpeningResponse
+// @Failure 400 (object) ErrorResponse
+// @Failure 500 (object) ErrorResponse
 // @Router       /opening [post]
 func CreateOpeningHandler(ctx *gin.Context) {
 	request := CreateOpeningRequest{}
